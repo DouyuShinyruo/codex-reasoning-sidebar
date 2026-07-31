@@ -1,0 +1,3 @@
+.server.pid
+node_modules/
+*.log

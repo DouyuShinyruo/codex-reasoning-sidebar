@@ -1,0 +1,26 @@
+{
+  "name": "reasoning-sidebar",
+  "version": "0.1.0",
+  "description": "Live reasoning sidebar for Codex: streams the current window's chain-of-thought into the in-app browser side panel with typing-style display.",
+  "author": {
+    "name": "Dream New"
+  },
+  "license": "MIT",
+  "keywords": [
+    "reasoning",
+    "thinking",
+    "sidebar",
+    "browser"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "思维链侧边栏",
+    "shortDescription": "实时显示当前窗口的思维链",
+    "longDescription": "在 Codex 内置浏览器侧边栏实时流式显示当前窗口的思考过程，自动跟随最近活动的会话，支持过滤和暂停。",
+    "developerName": "Dream New",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive"
+    ]
+  }
+}
