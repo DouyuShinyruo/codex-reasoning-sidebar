@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- 许可证由 MIT 调整为 Creative Commons Attribution-NonCommercial 4.0 International（非商业使用）
+
 ## [0.1.0] - 2026-07-31
 
 ### Added
