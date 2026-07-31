@@ -2,6 +2,10 @@
 
 > Codex 实时思维链侧边栏插件：在 Codex 内置浏览器的侧边栏中，流式显示当前窗口的思考过程。
 
+![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)
+![Node](https://img.shields.io/badge/node-18%2B-blue)
+![Platform](https://img.shields.io/badge/platform-Windows-blue)
+
 `codex-reasoning-sidebar` 是一个运行在本地的小型 Codex 插件。它监听 Codex 会话文件，把最近活跃会话里的思维链（reasoning）、回复、工具调用和用户消息实时推送到浏览器页面，以打字机效果逐字展示。整个过程只在本机运行，不调用任何云端 API。
 
 ## 功能
