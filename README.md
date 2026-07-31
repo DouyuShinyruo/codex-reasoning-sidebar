@@ -2,7 +2,7 @@
 
 > Codex 实时思维链侧边栏插件：在 Codex 内置浏览器的侧边栏中，流式显示当前窗口的思考过程。
 
-![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)
+![License: CC BY-NC 4.0](https://img.shields.io/badge/license-CC%20BY--NC%204.0-blue.svg)
 ![Node](https://img.shields.io/badge/node-18%2B-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows-blue)
 
@@ -130,7 +130,11 @@ codex-reasoning-sidebar-plugin/
 
 ## 许可证
 
-本项目使用 [MIT License](LICENSE)。
+本项目使用 [Creative Commons Attribution-NonCommercial 4.0 International](LICENSE)（CC BY-NC 4.0）。
+
+- 允许：个人学习、研究、本地使用、修改、非商业分发
+- 禁止：未经授权将本项目或其衍生作品用于商业用途
+- 商用需求请先联系作者获取授权
 
 ## 合规与免责声明
 
