@@ -1,15 +1,15 @@
 $ErrorActionPreference = "Stop"
 
 $homeDir = $env:USERPROFILE
-$source = "D:\workspace\reasoning-sidebar-plugin"
-$pluginRoot = Join-Path $homeDir "plugins\reasoning-sidebar"
+$source = "D:\workspace\codex-reasoning-sidebar-plugin"
+$pluginRoot = Join-Path $homeDir "plugins\codex-reasoning-sidebar"
 $marketplacePath = Join-Path $homeDir ".agents\plugins\marketplace.json"
 
 Write-Host "Copying plugin to $pluginRoot"
 New-Item -ItemType Directory -Force -Path (Split-Path $pluginRoot -Parent) | Out-Null
 if (Test-Path -LiteralPath $pluginRoot) {
   Copy-Item -Path (Join-Path $source "*") -Destination $pluginRoot -Recurse -Force
-  $nested = Join-Path $pluginRoot "reasoning-sidebar-plugin"
+  $nested = Join-Path $pluginRoot "codex-reasoning-sidebar-plugin"
   if (Test-Path -LiteralPath $nested) {
     Remove-Item -LiteralPath $nested -Recurse -Force
   }
@@ -30,11 +30,11 @@ if (Test-Path -LiteralPath $marketplacePath) {
   }
 }
 
-$exists = @($marketplace.plugins | Where-Object { $_.name -eq "reasoning-sidebar" }).Count -gt 0
+$exists = @($marketplace.plugins | Where-Object { $_.name -eq "codex-reasoning-sidebar" }).Count -gt 0
 if (-not $exists) {
   $entry = [pscustomobject]@{
-    name = "reasoning-sidebar"
-    source = @{ source = "local"; path = "./plugins/reasoning-sidebar" }
+    name = "codex-reasoning-sidebar"
+    source = @{ source = "local"; path = "./plugins/codex-reasoning-sidebar" }
     policy = @{ installation = "AVAILABLE"; authentication = "ON_INSTALL" }
     category = "Productivity"
   }
@@ -43,7 +43,7 @@ if (-not $exists) {
   [System.IO.File]::WriteAllText($marketplacePath, $json, (New-Object System.Text.UTF8Encoding($false)))
   Write-Host "Updated marketplace: $marketplacePath"
 } else {
-  Write-Host "reasoning-sidebar already in marketplace."
+  Write-Host "codex-reasoning-sidebar already in marketplace."
 }
 
 $codex = Get-ChildItem (Join-Path $homeDir "AppData\Local\OpenAI\Codex\bin") -Directory |
@@ -57,9 +57,9 @@ if (-not $codex) {
 }
 
 Write-Host "Installing plugin with $codex"
-& $codex plugin add reasoning-sidebar@personal 2>&1
+& $codex plugin add codex-reasoning-sidebar@personal 2>&1
 if ($LASTEXITCODE -ne 0) {
   throw "codex plugin add failed"
 }
 
-Write-Host "Done. Open a new Codex window and ask: open the reasoning sidebar"
+Write-Host "Done. Open a new Codex window and ask: open the Codex reasoning sidebar"

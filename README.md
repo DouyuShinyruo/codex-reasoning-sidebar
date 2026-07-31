@@ -1,51 +1,158 @@
-# reasoning-sidebar
+# codex-reasoning-sidebar
 
-Codex 实时思维链侧边栏插件：在 Codex 内置浏览器侧边栏中流式显示当前窗口的思考过程。
+> Codex 实时思维链侧边栏插件：在 Codex 内置浏览器的侧边栏中，流式显示当前窗口的思考过程。
+
+`codex-reasoning-sidebar` 是一个运行在本地的小型 Codex 插件。它监听 Codex 会话文件，把最近活跃会话里的思维链（reasoning）、回复、工具调用和用户消息实时推送到浏览器页面，以打字机效果逐字展示。整个过程只在本机运行，不调用任何云端 API。
 
 ## 功能
 
-- 自动跟随最近活动的 Codex 会话，切换窗口自动切换数据源
-- 打字机式流式显示思维链
-- 支持过滤：思考 / 回复 / 工具调用 / 用户消息
-- 支持暂停与清空，点击正文可立即显示全文
-- 内置去重，避免同一思考被会话文件双写导致重复显示
-- 纯本地读取会话文件，不调用 API，不产生额外费用
+- 自动跟随最近活跃的 Codex 会话，切换窗口后自动切换数据源
+- 打字机式流式展示思维链，点击正文可立即显示完整内容
+- 按类型过滤：思考 / 回复 / 工具调用 / 用户消息
+- 支持暂停、继续与清空，方便随时回看
+- 内置 30 秒去重，避免同一思考因会话文件重复写入而显示多次
+- 自动清理过期条目，页面最多保留最近 300 条记录
+- 纯本地读取 `%USERPROFILE%\.codex\sessions`，不调用 API、不产生额外费用
+- 零第三方依赖，仅使用 Node.js 内置模块，安装简单
 
 ## 安装
+
+### 前置要求
+
+- Windows 10 / 11
+- Node.js 18 或更高版本
+- Codex 桌面版（内置浏览器）
+
+### 安装插件
+
+在插件目录下运行：
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
-安装完成后新开一个 Codex 窗口，说"打开思维链侧边栏"即可。
+安装脚本会：
+
+1. 把插件复制到 `%USERPROFILE%\plugins\codex-reasoning-sidebar`
+2. 在个人插件市场注册 `codex-reasoning-sidebar`
+3. 通过 Codex CLI 安装并启用插件
+
+安装完成后，重新打开一个 Codex 窗口，对 Codex 说“打开思维链侧边栏”即可。
 
 ## 使用
 
-1. 启动服务：
+### 启动服务
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\start-reasoning-sidebar.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\start-codex-reasoning-sidebar.ps1
 ```
 
-2. 在 Codex 内置浏览器打开 `http://127.0.0.1:8792/`
+服务默认监听 `http://127.0.0.1:8792`。
 
-3. 停止服务：
+### 打开页面
+
+在 Codex 内置浏览器中打开：
+
+```text
+http://127.0.0.1:8792/
+```
+
+页面顶部会显示当前正在监听的会话 ID。新开 Codex 窗口并开始对话后，侧边栏会自动切换并开始流式展示。
+
+### 停止服务
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\stop-reasoning-sidebar.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\stop-codex-reasoning-sidebar.ps1
 ```
 
-注意：必须通过 HTTP 访问，直接打开本地 HTML 文件时无法使用实时推送。
+> 注意：必须通过 `http://` 访问页面，直接双击打开本地 `index.html` 无法建立 SSE 实时连接。
+
+## 配置
+
+| 环境变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `PORT` | `8792` | HTTP / SSE 服务端口 |
+| `CODEX_HOME` | `%USERPROFILE%\.codex` | Codex 会话文件所在目录 |
+
+示例（临时修改端口）：
+
+```powershell
+$env:PORT = 9000
+powershell -NoProfile -ExecutionPolicy Bypass -File .\start-codex-reasoning-sidebar.ps1
+```
+
+修改端口后，浏览器访问 `http://127.0.0.1:9000/`。
+
+## 工作原理
+
+```text
+Codex 会话文件（rollout-*.jsonl）
+        │ 每秒轮询最新文件
+        ▼
+server.mjs（本地 HTTP + SSE 服务）
+        │ 解析 reasoning / assistant / tool / user 事件
+        │ 30 秒窗口去重
+        ▼
+内置浏览器侧边栏（public/index.html）
+        │ 打字机流式渲染
+        ▼
+实时展示当前窗口的思维链
+```
+
+服务器只监听 `127.0.0.1`，不会对外网开放。页面通过 Server-Sent Events（SSE）接收实时数据。
 
 ## 目录结构
 
 ```text
-reasoning-sidebar-plugin/
-├── .codex-plugin/plugin.json   # 插件清单
-├── skills/reasoning-sidebar/   # Codex skill 说明
-├── public/index.html           # 侧边栏页面
-├── server.mjs                  # HTTP + SSE 服务
-├── install.ps1                 # 安装脚本
-├── start-reasoning-sidebar.ps1 # 启动脚本
-└── stop-reasoning-sidebar.ps1  # 停止脚本
+codex-reasoning-sidebar-plugin/
+├── .codex-plugin/plugin.json             # Codex 插件清单
+├── skills/codex-reasoning-sidebar/       # 插件内置 skill 说明
+├── public/index.html            # 侧边栏页面
+├── server.mjs                   # 本地 HTTP + SSE 服务
+├── install.ps1                  # 安装脚本
+├── start-codex-reasoning-sidebar.ps1     # 启动脚本
+├── stop-codex-reasoning-sidebar.ps1      # 停止脚本
+├── README.md                             # 项目说明
+├── CHANGELOG.md                          # 更新记录
+└── LICENSE                               # MIT 许可证
 ```
+
+## 隐私与安全
+
+- 所有数据处理均在本机完成，不上传任何会话内容
+- 服务只绑定本机回环地址 `127.0.0.1`
+- 项目不读取、不存储浏览器之外的任何用户文件
+- 页面仅通过 `localhost` 访问，未使用第三方统计或跟踪服务
+
+## 许可证
+
+本项目使用 [MIT License](LICENSE)。
+
+## 合规与免责声明
+
+- 本项目是独立开发的第三方工具，与 OpenAI 无隶属关系，未经 OpenAI 官方认可
+- “Codex” 等相关名称仅用于描述兼容对象
+- 本项目仅供个人学习和本地使用，使用者应遵守所在地区法律法规及 Codex 服务条款
+- 项目不包含任何第三方闭源代码；除 Node.js 标准库外无其他运行时依赖
+
+## 常见问题
+
+### 页面显示“连接断开，重连中...”
+
+确认服务已启动，并已通过 `http://127.0.0.1:8792/` 访问页面。
+
+### 看不到新会话的内容
+
+新开 Codex 窗口后，等待几秒让会话文件开始写入；页面会自动切换到最近活跃的会话。
+
+### 端口被占用
+
+通过 `PORT` 环境变量指定其他端口，例如 `PORT=9000`，然后重启服务。
+
+### 内容重复显示
+
+服务器内置了 30 秒去重窗口。若仍出现重复，请确认没有多个服务实例同时运行。
+
+## 更新记录
+
+参见 [CHANGELOG.md](CHANGELOG.md)。
