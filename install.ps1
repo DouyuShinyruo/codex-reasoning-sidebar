@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
 $homeDir = $env:USERPROFILE
-$source = "D:\workspace\codex-reasoning-sidebar-plugin"
+$source = $PSScriptRoot
 $pluginRoot = Join-Path $homeDir "plugins\codex-reasoning-sidebar"
 $marketplacePath = Join-Path $homeDir ".agents\plugins\marketplace.json"
 

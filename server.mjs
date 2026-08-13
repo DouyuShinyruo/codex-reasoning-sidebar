@@ -1,11 +1,12 @@
 import http from 'node:http';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const port = Number(process.env.PORT || 8792);
-const codexHome = process.env.CODEX_HOME || path.join(process.env.USERPROFILE || 'C:/Users/34169', '.codex');
+const codexHome = process.env.CODEX_HOME || path.join(process.env.USERPROFILE || os.homedir(), '.codex');
 const sessionsRoot = path.join(codexHome, 'sessions');
 
 const clients = new Set();
