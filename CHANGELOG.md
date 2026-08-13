@@ -4,7 +4,7 @@
 
 ### Changed
 
-- 许可证由 MIT 调整为 Creative Commons Attribution-NonCommercial 4.0 International（非商业使用）
+- 许可证由 MIT 调整为 Creative Commons Attribution-NonCommercial 4.0 International（非商业使用）`n- 许可证由 CC BY-NC 4.0 调整为 GPL-3.0（GNU General Public License v3）
 
 ## [0.1.0] - 2026-07-31
 

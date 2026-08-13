@@ -2,7 +2,7 @@
   "name": "codex-reasoning-sidebar",
   "version": "0.1.0",
   "description": "Codex 实时思维链侧边栏插件：在 Codex 内置浏览器中流式显示当前窗口的思考过程。",
-  "license": "CC-BY-NC-4.0",
+  "license": "GPL-3.0",
   "private": true,
   "type": "module",
   "engines": {
