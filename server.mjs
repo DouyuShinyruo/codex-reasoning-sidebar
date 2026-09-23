@@ -9,6 +9,16 @@ const port = Number(process.env.PORT || 8792);
 const codexHome = process.env.CODEX_HOME || path.join(process.env.USERPROFILE || os.homedir(), '.codex');
 const sessionsRoot = path.join(codexHome, 'sessions');
 
+// A session counts as "recently active" for this long after its last write.
+const ACTIVE_WINDOW_MS = 30 * 60 * 1000;
+// Keep following the current session for this long after its last write, even
+// if another session also wrote something. Prevents ping-ponging between two
+// simultaneously active windows.
+const STICKY_WINDOW_MS = 2500;
+// When attaching to a session (start or switch), only replay the tail instead
+// of the whole file, so the sidebar becomes useful immediately.
+const TAIL_BYTES = 64 * 1024;
+
 const clients = new Set();
 let currentFile = null;
 let currentOffset = 0;
@@ -16,6 +26,13 @@ let carry = '';
 let lastSwitchNotified = '';
 let scanTimer = null;
 const recentItems = new Map();
+
+// path -> last observed file size
+const fileSizes = new Map();
+// path -> Date.now() of the last poll in which the file grew
+const lastWrite = new Map();
+// path -> { id, label } parsed from the session_meta header line
+const sessionMeta = new Map();
 
 function walkRollouts(dir, depth = 0) {
   if (depth > 4) return [];
@@ -39,14 +56,90 @@ function walkRollouts(dir, depth = 0) {
   return out;
 }
 
-function findLatestFile() {
+function scanSessions() {
   const all = walkRollouts(sessionsRoot);
-  if (!all.length) return null;
   const now = Date.now();
-  const active = all
-    .filter((f) => now - f.mtime < 10 * 60 * 1000)
-    .sort((a, b) => b.mtime - a.mtime);
-  return (active[0] || all.sort((a, b) => b.mtime - a.mtime)[0]).full;
+  for (const f of all) {
+    const prev = fileSizes.get(f.full);
+    if (prev === undefined) {
+      // First sighting: seed activity from mtime so a recently-used session
+      // can win immediately on startup.
+      lastWrite.set(f.full, f.mtime);
+    } else if (f.size !== prev) {
+      lastWrite.set(f.full, now);
+    }
+    fileSizes.set(f.full, f.size);
+  }
+  // Forget sessions that have been quiet for a long time.
+  const cutoff = now - ACTIVE_WINDOW_MS;
+  for (const p of lastWrite.keys()) {
+    if ((lastWrite.get(p) || 0) < cutoff) {
+      lastWrite.delete(p);
+      fileSizes.delete(p);
+      sessionMeta.delete(p);
+    }
+  }
+  return all;
+}
+
+function readSessionMeta(file) {
+  if (sessionMeta.has(file)) return sessionMeta.get(file);
+  let info = { id: null, label: null };
+  let handle;
+  try {
+    handle = fs.openSync(file, 'r');
+    const buf = Buffer.alloc(Math.min(32768, fs.fstatSync(handle).size));
+    fs.readSync(handle, buf, 0, buf.length, 0);
+    const firstLine = buf.toString('utf8').split('\n', 1)[0].trim();
+    const obj = firstLine ? JSON.parse(firstLine) : null;
+    if (obj && obj.type === 'session_meta') {
+      const id = obj.payload?.session_id || obj.payload?.id || null;
+      const cwd = obj.payload?.cwd || '';
+      info = {
+        id,
+        label: cwd ? path.basename(cwd) : null,
+      };
+    }
+  } catch {}
+  finally {
+    if (handle !== undefined) {
+      try { fs.closeSync(handle); } catch {}
+    }
+  }
+  sessionMeta.set(file, info);
+  return info;
+}
+
+function shortId(id) {
+  return id ? `${id.slice(0, 4)}…${id.slice(-4)}` : '未知会话';
+}
+
+function pickSession() {
+  scanSessions();
+  const now = Date.now();
+
+  // Stay with the current session while it is still producing output.
+  if (currentFile) {
+    const last = lastWrite.get(currentFile) || 0;
+    if (now - last < STICKY_WINDOW_MS) return currentFile;
+    if (!lastWrite.has(currentFile)) return currentFile; // quiet, but keep until a better candidate
+  }
+
+  // Follow whichever session wrote most recently.
+  let best = null;
+  let bestAt = -1;
+  for (const [file, at] of lastWrite) {
+    if (at > bestAt) {
+      best = file;
+      bestAt = at;
+    }
+  }
+  if (best && now - bestAt < ACTIVE_WINDOW_MS) return best;
+
+  // Nothing active recently: keep current, otherwise attach to the newest file.
+  if (currentFile) return currentFile;
+  const all = walkRollouts(sessionsRoot).sort((a, b) => b.mtime - a.mtime);
+  return all[0] ? all[0].full : null;
 }
 
 function readNewEntries() {
@@ -149,10 +242,32 @@ function dedupe(obj) {
 
 function switchTo(file) {
   currentFile = file;
-  currentOffset = 0;
   carry = '';
-  const id = path.basename(file).match(/([0-9a-f-]{36})/)?.[1] || file;
-  const note = `已监听会话 ${id}`;
+
+  // Attach near the tail so switching is instant instead of replaying the
+  // entire session history with the typewriter effect.
+  let start = 0;
+  try {
+    const st = fs.statSync(file);
+    if (st.size > TAIL_BYTES) {
+      start = st.size - TAIL_BYTES;
+      const handle = fs.openSync(file, 'r');
+      try {
+        const buf = Buffer.alloc(Math.min(st.size - start, 4096));
+        fs.readSync(handle, buf, 0, buf.length, start);
+        const nl = buf.indexOf(10);
+        start = nl >= 0 ? start + nl + 1 : 0; // align to the next full line
+      } finally {
+        fs.closeSync(handle);
+      }
+    }
+  } catch {}
+  currentOffset = start;
+
+  const info = readSessionMeta(file);
+  const note = info.label
+    ? `已监听 ${info.label}（${shortId(info.id)}）`
+    : `已监听会话 ${shortId(info.id)}`;
   if (note !== lastSwitchNotified) {
     lastSwitchNotified = note;
     broadcast({ kind: 'system', ts: new Date().toISOString(), text: note });
@@ -160,7 +275,7 @@ function switchTo(file) {
 }
 
 function poll() {
-  const latest = findLatestFile();
+  const latest = pickSession();
   if (!latest) return;
   if (!currentFile || latest !== currentFile) switchTo(latest);
   const entries = readNewEntries();
@@ -194,10 +309,12 @@ const server = http.createServer((req, res) => {
     return;
   }
   if (url.pathname === '/api/session') {
+    const info = currentFile ? readSessionMeta(currentFile) : { id: null, label: null };
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({
       file: currentFile || null,
-      session: currentFile ? (path.basename(currentFile).match(/([0-9a-f-]{36})/)?.[1] || null) : null,
+      session: info.id,
+      label: info.label,
     }));
     return;
   }

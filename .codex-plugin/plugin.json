@@ -1,6 +1,6 @@
 {
   "name": "codex-reasoning-sidebar",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A local Codex plugin that streams the current window's reasoning chain into the in-app browser side panel with typing-style display.",
   "author": {
     "name": "MengXinSu"

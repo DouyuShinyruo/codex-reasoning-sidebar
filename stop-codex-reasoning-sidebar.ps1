@@ -6,9 +6,9 @@ if (-not (Test-Path $pidFile)) {
     exit 0
 }
 
-$pid = Get-Content $pidFile -ErrorAction SilentlyContinue
-if ($pid -and (Get-Process -Id $pid -ErrorAction SilentlyContinue)) {
-    Stop-Process -Id $pid -Force
+$serverPid = Get-Content $pidFile -ErrorAction SilentlyContinue
+if ($serverPid -and (Get-Process -Id $serverPid -ErrorAction SilentlyContinue)) {
+    Stop-Process -Id $serverPid -Force
     Write-Host "stopped"
 } else {
     Write-Host "process already gone"

@@ -11,8 +11,10 @@
 ## 功能
 
 - 自动跟随最近活跃的 Codex 会话，切换窗口后自动切换数据源
+- 悬浮窗模式：无边框、置顶、可拖动的桌面小窗，贴屏幕右缘显示
 - 打字机式流式展示思维链，点击正文可立即显示完整内容
-- 按类型过滤：思考 / 回复 / 工具调用 / 用户消息
+- 按类型过滤：思考 / 回复 / 工具调用 / 用户消息（默认全部开启）
+- 主题跟随系统（自动 / 浅色 / 深色可手动切换，选择会记住）
 - 支持暂停、继续与清空，方便随时回看
 - 内置 30 秒去重，避免同一思考因会话文件重复写入而显示多次
 - 自动清理过期条目，页面最多保留最近 300 条记录
@@ -63,6 +65,15 @@ http://127.0.0.1:8792/
 
 页面顶部会显示当前正在监听的会话 ID。新开 Codex 窗口并开始对话后，侧边栏会自动切换并开始流式展示。
 
+### 悬浮窗模式（可选）
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\start-codex-reasoning-sidebar-float.ps1
+```
+
+脚本会自动启动本地服务（若未运行）、安装 `pywebview` 依赖（仅首次），然后打开一个无边框、置顶、
+可整体拖动的悬浮窗，默认停靠在屏幕右缘。悬浮窗与内置浏览器页面使用同一个服务，可以同时开。
+
 ### 停止服务
 
 ```powershell
@@ -77,6 +88,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\stop-codex-reasoning-sideb
 | --- | --- | --- |
 | `PORT` | `8792` | HTTP / SSE 服务端口 |
 | `CODEX_HOME` | `%USERPROFILE%\.codex` | Codex 会话文件所在目录 |
+| `CODEX_REASONING_URL` | `http://127.0.0.1:8792/` | 悬浮窗加载的页面地址 |
 
 示例（临时修改端口）：
 
@@ -91,13 +103,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\start-codex-reasoning-side
 
 ```text
 Codex 会话文件（rollout-*.jsonl）
-        │ 每秒轮询最新文件
+        │ 每秒扫描，按文件实际写入（大小变化）判断活跃会话
         ▼
 server.mjs（本地 HTTP + SSE 服务）
         │ 解析 reasoning / assistant / tool / user 事件
         │ 30 秒窗口去重
+        │ 从 session_meta 读取会话 ID 与项目名
         ▼
-内置浏览器侧边栏（public/index.html）
+内置浏览器侧边栏 / 悬浮窗（public/index.html）
         │ 打字机流式渲染
         ▼
 实时展示当前窗口的思维链
@@ -113,8 +126,10 @@ codex-reasoning-sidebar-plugin/
 ├── skills/codex-reasoning-sidebar/       # 插件内置 skill 说明
 ├── public/index.html            # 侧边栏页面
 ├── server.mjs                   # 本地 HTTP + SSE 服务
+├── float-sidebar.pyw            # 悬浮窗宿主（pywebview，双击启动）
 ├── install.ps1                  # 安装脚本
 ├── start-codex-reasoning-sidebar.ps1     # 启动脚本
+├── start-codex-reasoning-sidebar-float.ps1     # 悬浮窗启动脚本
 ├── stop-codex-reasoning-sidebar.ps1      # 停止脚本
 ├── README.md                             # 项目说明
 ├── CHANGELOG.md                          # 更新记录

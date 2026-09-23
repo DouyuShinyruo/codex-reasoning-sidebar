@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
   <title>Codex 思维链</title>
   <style>
     :root {
@@ -10,11 +11,26 @@
       --panel: #181b22;
       --line: #2a2f3a;
       --text: #e8eaf0;
+      --body: #c9cfdb;
       --muted: #8b93a5;
+      --hover-line: #3a4150;
       --blue: #6ea8ff;
       --green: #7ddc9b;
       --orange: #e8a45c;
       --pink: #f08ab0;
+    }
+    :root[data-theme="light"] {
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --line: #e2e5ea;
+      --text: #1f2430;
+      --body: #2c3442;
+      --muted: #68707f;
+      --hover-line: #c7ccd6;
+      --blue: #2f6fed;
+      --green: #148f4d;
+      --orange: #b26a05;
+      --pink: #c2437a;
     }
     * { box-sizing: border-box; }
     html, body { height: 100%; margin: 0; }
@@ -34,11 +50,13 @@
       border-bottom: 1px solid var(--line);
       background: var(--panel);
       flex: 0 0 auto;
+      user-select: none;
     }
     header h1 {
       font-size: 13px;
       font-weight: 600;
       margin: 0;
+      white-space: nowrap;
     }
     .spacer { flex: 1; }
     .status {
@@ -58,7 +76,7 @@
       font-size: 11px;
       cursor: pointer;
     }
-    button:hover { color: var(--text); border-color: #3a4150; }
+    button:hover { color: var(--text); border-color: var(--hover-line); }
     button.on { color: var(--blue); border-color: var(--blue); }
     .filters {
       display: flex;
@@ -103,15 +121,15 @@
       font-weight: 600;
     }
     .reasoning { border-left-color: var(--blue); }
-    .reasoning .tag { color: var(--blue); background: rgba(110,168,255,0.12); }
+    .reasoning .tag { color: var(--blue); background: color-mix(in srgb, var(--blue) 14%, transparent); }
     .assistant { border-left-color: var(--green); }
-    .assistant .tag { color: var(--green); background: rgba(125,220,155,0.12); }
+    .assistant .tag { color: var(--green); background: color-mix(in srgb, var(--green) 14%, transparent); }
     .tool { border-left-color: var(--orange); }
-    .tool .tag { color: var(--orange); background: rgba(232,164,92,0.12); }
+    .tool .tag { color: var(--orange); background: color-mix(in srgb, var(--orange) 14%, transparent); }
     .user { border-left-color: var(--pink); }
-    .user .tag { color: var(--pink); background: rgba(240,138,176,0.12); }
+    .user .tag { color: var(--pink); background: color-mix(in srgb, var(--pink) 14%, transparent); }
     .system { border-left-color: var(--muted); color: var(--muted); font-size: 11px; }
-    .item .body { font-size: 12px; color: #c9cfdb; }
+    .item .body { font-size: 12px; color: var(--body); }
     .empty {
       color: var(--muted);
       text-align: center;
@@ -121,18 +139,19 @@
   </style>
 </head>
 <body>
-  <header>
+  <header class="pywebview-drag-region">
     <h1>Codex 思维链</h1>
     <div class="spacer"></div>
     <span class="status" id="status">连接中...</span>
+    <button id="theme" title="切换主题">自动</button>
     <button id="pause">暂停</button>
     <button id="clear">清空</button>
   </header>
   <div class="filters">
     <button data-filter="reasoning" class="on">思考</button>
-    <button data-filter="assistant">回复</button>
-    <button data-filter="tool">工具</button>
-    <button data-filter="user">我</button>
+    <button data-filter="assistant" class="on">回复</button>
+    <button data-filter="tool" class="on">工具</button>
+    <button data-filter="user" class="on">我</button>
   </div>
   <main id="feed">
     <div class="empty">等待思维链...</div>
@@ -142,11 +161,38 @@
     const status = document.getElementById('status');
     const pauseBtn = document.getElementById('pause');
     const clearBtn = document.getElementById('clear');
-    const filters = new Set(['reasoning']);
+    const themeBtn = document.getElementById('theme');
+    // All four kinds are enabled by default.
+    const filters = new Set(['reasoning', 'assistant', 'tool', 'user']);
     let paused = false;
     let autoScroll = true;
     let queue = [];
     let playing = false;
+
+    // ---- Theme: auto follows the OS, manual choice is persisted ----
+    const THEME_KEY = 'codex-reasoning-sidebar-theme';
+    const THEME_ORDER = ['auto', 'light', 'dark'];
+    const THEME_LABEL = { auto: '自动', light: '浅色', dark: '深色' };
+    const media = matchMedia('(prefers-color-scheme: dark)');
+
+    function applyTheme(mode) {
+      const dark = mode === 'dark' || (mode === 'auto' && media.matches);
+      document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+      themeBtn.textContent = THEME_LABEL[mode];
+      themeBtn.classList.toggle('on', mode !== 'auto');
+    }
+    let themeMode = THEME_ORDER.includes(localStorage.getItem(THEME_KEY))
+      ? localStorage.getItem(THEME_KEY)
+      : 'auto';
+    applyTheme(themeMode);
+    media.addEventListener('change', () => {
+      if (themeMode === 'auto') applyTheme('auto');
+    });
+    themeBtn.addEventListener('click', () => {
+      themeMode = THEME_ORDER[(THEME_ORDER.indexOf(themeMode) + 1) % THEME_ORDER.length];
+      localStorage.setItem(THEME_KEY, themeMode);
+      applyTheme(themeMode);
+    });
 
     function fmt(ts) {
       if (!ts) return '';
@@ -268,7 +314,9 @@
       status.textContent = '连接断开，重连中...';
     };
     fetch('/api/session').then((r) => r.json()).then((d) => {
-      if (d.session) status.textContent = '已监听会话 ' + d.session;
+      if (!d.session) return;
+      const short = d.session.slice(0, 4) + '…' + d.session.slice(-4);
+      status.textContent = (d.label ? `已监听 ${d.label}（${short}）` : `已监听会话 ${short}`);
     }).catch(() => {});
   </script>
 </body>

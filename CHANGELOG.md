@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+### Added
+
+- 悬浮窗模式：`float-sidebar.pyw` / `start-codex-reasoning-sidebar-float.ps1`，无边框置顶可拖动窗口，自动拉起本地服务
+- 浅色主题：默认跟随系统，可手动切换 自动 / 浅色 / 深色，选择会记住
+- 会话信息现在显示项目名 + 短会话 ID（从 `session_meta` 解析）
+
+### Fixed
+
+- 四种消息类型（思考 / 回复 / 工具 / 我）默认全部勾选
+- 会话自动跟随改为基于文件实际写入（大小变化）而非仅 mtime，多窗口切换更可靠
+- 切换会话时不再从头回放整段历史，只回放最近约 64KB，切换即时生效
+- 修正会话 ID 提取错误的问题（此前正则会匹配到时间戳片段）
+- 修复停止脚本使用保留变量 `$pid` 导致无法停止服务的问题
+
 ### Changed
 
 - 许可证由 MIT 调整为 Creative Commons Attribution-NonCommercial 4.0 International（非商业使用）`n- 许可证由 CC BY-NC 4.0 调整为 GPL-3.0（GNU General Public License v3）
