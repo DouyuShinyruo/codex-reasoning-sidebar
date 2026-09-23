@@ -146,6 +146,7 @@
     <button id="theme" title="切换主题">自动</button>
     <button id="pause">暂停</button>
     <button id="clear">清空</button>
+    <button id="close" title="关闭悬浮窗" hidden>✕</button>
   </header>
   <div class="filters">
     <button data-filter="reasoning" class="on">思考</button>
@@ -162,6 +163,7 @@
     const pauseBtn = document.getElementById('pause');
     const clearBtn = document.getElementById('clear');
     const themeBtn = document.getElementById('theme');
+    const closeBtn = document.getElementById('close');
     // All four kinds are enabled by default.
     const filters = new Set(['reasoning', 'assistant', 'tool', 'user']);
     let paused = false;
@@ -193,6 +195,16 @@
       localStorage.setItem(THEME_KEY, themeMode);
       applyTheme(themeMode);
     });
+
+    // Inside the pywebview floating window, show an in-page close button.
+    function showCloseIfFloating() {
+      if (window.pywebview && window.pywebview.api && window.pywebview.api.quit) {
+      closeBtn.hidden = false;
+      closeBtn.addEventListener('click', () => window.pywebview.api.quit());
+      }
+    }
+    showCloseIfFloating();
+    window.addEventListener('pywebviewready', showCloseIfFloating);
 
     function fmt(ts) {
       if (!ts) return '';
