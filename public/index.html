@@ -136,6 +136,17 @@
       padding: 40px 10px;
       font-size: 12px;
     }
+    .grip {
+      position: fixed;
+      right: 0;
+      bottom: 0;
+      width: 18px;
+      height: 18px;
+      cursor: nwse-resize;
+      z-index: 10;
+      background: linear-gradient(135deg, transparent 0 50%, var(--line) 50% 100%);
+      border-top-left-radius: 4px;
+    }
   </style>
 </head>
 <body>
@@ -157,6 +168,7 @@
   <main id="feed">
     <div class="empty">等待思维链...</div>
   </main>
+  <div class="grip" id="grip" hidden title="拖动调整悬浮窗大小"></div>
   <script>
     const feed = document.getElementById('feed');
     const status = document.getElementById('status');
@@ -196,15 +208,67 @@
       applyTheme(themeMode);
     });
 
-    // Inside the pywebview floating window, show an in-page close button.
+    // Inside the pywebview floating window: close button + resize grip.
     function showCloseIfFloating() {
       if (window.pywebview && window.pywebview.api && window.pywebview.api.quit) {
-      closeBtn.hidden = false;
-      closeBtn.addEventListener('click', () => window.pywebview.api.quit());
+        closeBtn.hidden = false;
+        closeBtn.addEventListener('click', () => window.pywebview.api.quit());
+        initResizeGrip();
       }
     }
     showCloseIfFloating();
     window.addEventListener('pywebviewready', showCloseIfFloating);
+
+    function initResizeGrip() {
+      const grip = document.getElementById('grip');
+      if (!grip || grip.dataset.init) return;
+      grip.dataset.init = '1';
+      grip.hidden = false;
+
+      let dragging = false;
+      let lastX = 0, lastY = 0, accX = 0, accY = 0, lastSent = 0;
+      const dpr = () => window.devicePixelRatio || 1;
+
+      const flush = () => {
+        if (!accX && !accY) return;
+        // CSS px -> physical px; the right edge stays anchored in Python.
+        window.pywebview.api.resize_by(Math.round(accX * dpr()), Math.round(accY * dpr()));
+        accX = accY = 0;
+      };
+
+      grip.addEventListener('pointerdown', (e) => {
+        dragging = true;
+        lastX = e.clientX; lastY = e.clientY;
+        lastSent = performance.now();
+        grip.setPointerCapture(e.pointerId);
+        e.preventDefault();
+      });
+      grip.addEventListener('pointermove', (e) => {
+        if (!dragging) return;
+        accX += e.clientX - lastX;
+        accY += e.clientY - lastY;
+        lastX = e.clientX; lastY = e.clientY;
+        const now = performance.now();
+        if (now - lastSent >= 50) { flush(); lastSent = now; }
+      });
+      const end = async () => {
+        if (!dragging) return;
+        dragging = false;
+        flush();
+        try {
+          const size = await window.pywebview.api.get_size();
+          if (size && size.w) localStorage.setItem('codex-reasoning-float-size', JSON.stringify(size));
+        } catch {}
+      };
+      grip.addEventListener('pointerup', end);
+      grip.addEventListener('pointercancel', end);
+
+      // Restore the size chosen last time.
+      try {
+        const saved = JSON.parse(localStorage.getItem('codex-reasoning-float-size') || 'null');
+        if (saved && saved.w && saved.h) window.pywebview.api.apply_size(saved.w, saved.h);
+      } catch {}
+    }
 
     function fmt(ts) {
       if (!ts) return '';

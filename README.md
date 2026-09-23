@@ -74,6 +74,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\start-codex-reasoning-side
 脚本会自动启动本地服务（若未运行）、安装 `pywebview` 依赖（仅首次），然后打开一个无边框、置顶、
 可整体拖动的悬浮窗，默认停靠在屏幕右缘。悬浮窗与内置浏览器页面使用同一个服务，可以同时开。
 
+悬浮窗右下角有缩放手柄（拖动调整宽高，右缘保持对齐），调整后的尺寸会被记住；
+右上角 ✕ 按钮关闭悬浮窗。
+
 ### 停止服务
 
 ```powershell
@@ -89,6 +92,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\stop-codex-reasoning-sideb
 | `PORT` | `8792` | HTTP / SSE 服务端口 |
 | `CODEX_HOME` | `%USERPROFILE%\.codex` | Codex 会话文件所在目录 |
 | `CODEX_REASONING_URL` | `http://127.0.0.1:8792/` | 悬浮窗加载的页面地址 |
+| `REPLAY_TAIL_KB` | `64` | 启动/切换会话时回放的历史长度（KB），`0` 表示回放全部历史 |
 
 示例（临时修改端口）：
 

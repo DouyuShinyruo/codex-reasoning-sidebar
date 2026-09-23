@@ -43,6 +43,57 @@ def start_server():
 
 
 class Api:
+    def __init__(self):
+        self.win = None
+        self.x = self.y = self.w = self.h = 0
+
+    def bind(self, win, x, y, w, h):
+        self.win = win
+        self.x, self.y, self.w, self.h = x, y, w, h
+
+    def _clamp(self, w, h):
+        screen = webview.screens[0]
+        return (
+            max(300, min(w, int(screen.width * 0.95))),
+            max(240, min(h, int(screen.height * 0.98))),
+        )
+
+    def resize_by(self, dx=0, dy=0):
+        """Resize by a delta; keeps the right edge anchored (grip is bottom-right)."""
+        if not self.win:
+            return False
+        try:
+            dx, dy = int(dx), int(dy)
+        except (TypeError, ValueError):
+            return False
+        w, h = self._clamp(self.w + dx, self.h + dy)
+        real_dx = w - self.w
+        self.w, self.h = w, h
+        self.x = max(0, self.x - real_dx)
+        self.win.resize(w, h)
+        self.win.move(self.x, self.y)
+        return True
+
+    def apply_size(self, w, h):
+        """Restore a saved size, docked to the right edge of the screen."""
+        if not self.win:
+            return False
+        try:
+            w, h = int(w), int(h)
+        except (TypeError, ValueError):
+            return False
+        screen = webview.screens[0]
+        w, h = self._clamp(w, h)
+        self.w, self.h = w, h
+        self.x = max(10, screen.width - w - 10)
+        self.y = self.y or max(int(screen.height * 0.04), 10)
+        self.win.resize(w, h)
+        self.win.move(self.x, self.y)
+        return True
+
+    def get_size(self):
+        return {"w": self.w, "h": self.h}
+
     def quit(self):
         for w in webview.windows:
             w.destroy()
@@ -63,10 +114,11 @@ def main():
     x = max(screen.width - width - 10, 10)
     y = max(int(screen.height * 0.04), 10)
 
-    webview.create_window(
+    api = Api()
+    window = webview.create_window(
         "Codex 思维链",
         URL,
-        js_api=Api(),
+        js_api=api,
         frameless=True,
         on_top=True,
         easy_drag=True,
@@ -77,6 +129,7 @@ def main():
         y=y,
         background_color="#111318",
     )
+    api.bind(window, x, y, width, height)
     webview.start()
 
 

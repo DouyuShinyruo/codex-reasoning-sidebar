@@ -17,7 +17,8 @@ const ACTIVE_WINDOW_MS = 30 * 60 * 1000;
 const STICKY_WINDOW_MS = 2500;
 // When attaching to a session (start or switch), only replay the tail instead
 // of the whole file, so the sidebar becomes useful immediately.
-const TAIL_BYTES = 64 * 1024;
+// REPLAY_TAIL_KB=0 replays the full session history instead.
+const TAIL_BYTES = Math.max(0, Number(process.env.REPLAY_TAIL_KB ?? 64)) * 1024;
 
 const clients = new Set();
 let currentFile = null;
