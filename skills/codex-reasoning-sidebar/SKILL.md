@@ -33,3 +33,4 @@ Run `powershell -NoProfile -ExecutionPolicy Bypass -File "<plugin>/stop-codex-re
 - All four filters (reasoning / assistant / tool / user) are enabled by default.
 - The 调用 button toggles a tool-call index strip; clicking a chip jumps to and highlights that entry.
 - Ctrl+F opens in-page search (Enter / Shift+Enter to cycle matches, Esc to close).
+- The search bar has VSCode-style toggles: match case (Alt+C), whole word (Alt+W), regex (Alt+R); invalid regex shows an error hint.

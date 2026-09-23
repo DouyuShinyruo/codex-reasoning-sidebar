@@ -109,6 +109,31 @@
       outline: none;
     }
     .searchbar input:focus { border-color: var(--blue); }
+    .searchbar button.toggle {
+      width: 20px;
+      height: 20px;
+      padding: 0;
+      border: 1px solid transparent;
+      border-radius: 3px;
+      font-size: 11px;
+      font-weight: 600;
+      font-family: Consolas, "Cascadia Mono", monospace;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 auto;
+    }
+    .searchbar button.toggle:hover {
+      background: color-mix(in srgb, var(--muted) 22%, transparent);
+      color: var(--text);
+      border-color: transparent;
+    }
+    .searchbar button.toggle.on {
+      background: color-mix(in srgb, var(--blue) 32%, transparent);
+      color: var(--blue);
+      border-color: transparent;
+    }
     .searchbar .count {
       color: var(--muted);
       font-size: 11px;
@@ -116,6 +141,7 @@
       text-align: center;
       white-space: nowrap;
     }
+    .searchbar .count.error { color: #f14c4c; }
     .chips {
       display: flex;
       gap: 6px;
@@ -186,10 +212,14 @@
     .system { border-left-color: var(--muted); color: var(--muted); font-size: 11px; }
     .item .body { font-size: 12px; color: var(--body); }
     .item .body mark {
-      background: color-mix(in srgb, var(--orange) 45%, transparent);
+      background: color-mix(in srgb, var(--orange) 26%, transparent);
       color: inherit;
       border-radius: 2px;
       padding: 0 1px;
+      outline: 1px solid color-mix(in srgb, var(--orange) 45%, transparent);
+    }
+    .item .body mark.current {
+      background: color-mix(in srgb, var(--orange) 60%, transparent);
     }
     .item.flash { animation: flash 1.2s ease-out; }
     @keyframes flash {
@@ -228,6 +258,9 @@
   </header>
   <div class="searchbar" id="searchbar" hidden>
     <input id="search-input" type="text" placeholder="查找内容…（Enter 下一个 · Shift+Enter 上一个 · Esc 关闭）">
+    <button class="toggle" id="opt-case" title="区分大小写 (Alt+C)">Aa</button>
+    <button class="toggle" id="opt-word" title="全字匹配 (Alt+W)">ab|</button>
+    <button class="toggle" id="opt-regex" title="使用正则表达式 (Alt+R)">.*</button>
     <span class="count" id="search-count"></span>
     <button id="search-prev" title="上一个 (Shift+Enter)">↑</button>
     <button id="search-next" title="下一个 (Enter)">↓</button>
@@ -258,6 +291,9 @@
     const searchPrevBtn = document.getElementById('search-prev');
     const searchNextBtn = document.getElementById('search-next');
     const searchCloseBtn = document.getElementById('search-close');
+    const optCaseBtn = document.getElementById('opt-case');
+    const optWordBtn = document.getElementById('opt-word');
+    const optRegexBtn = document.getElementById('opt-regex');
     const chips = document.getElementById('chips');
     // All four kinds are enabled by default.
     const filters = new Set(['reasoning', 'assistant', 'tool', 'user']);
@@ -267,9 +303,11 @@
     let playing = false;
     // Registry of rendered entries, used by search and the tool-call index.
     const allItems = [];
-    let searchMatches = [];
+    let searchHits = [];
     let searchCur = 0;
-    let activeQuery = '';
+    let activeMatcher = null;
+    // VSCode-style search options
+    const searchOpts = { caseSensitive: false, wholeWord: false, regex: false };
 
     // ---- Theme: auto follows the OS, manual choice is persisted ----
     const THEME_KEY = 'codex-reasoning-sidebar-theme';
@@ -390,60 +428,109 @@
 
     function applyMarks(el) {
       const body = el && el.querySelector('.body');
-      if (!body || !el.dataset.done || !activeQuery || el._text === undefined) return;
+      if (!body || !el.dataset.done || el._text === undefined) return;
       const text = el._text;
-      const low = text.toLowerCase();
-      const qlen = activeQuery.length;
-      let html = '';
-      let i = 0;
-      while (true) {
-        const at = low.indexOf(activeQuery, i);
-        if (at < 0) { html += esc(text.slice(i)); break; }
-        html += esc(text.slice(i, at)) + '<mark>' + esc(text.substr(at, qlen)) + '</mark>';
-        i = at + qlen;
+      const mine = searchHits.filter((h) => h.el === el);
+      if (!mine.length || !activeMatcher || activeMatcher.error) {
+        body.textContent = text;
+        return;
       }
+      let html = '';
+      let pos = 0;
+      for (const h of mine) {
+        const isCur = searchHits[searchCur] === h;
+        html += esc(text.slice(pos, h.start))
+          + '<mark' + (isCur ? ' class="current"' : '') + '>'
+          + esc(text.slice(h.start, h.end)) + '</mark>';
+        pos = h.end;
+      }
+      html += esc(text.slice(pos));
       body.innerHTML = html;
     }
 
     function updateSearchCount() {
-      searchCount.textContent = searchMatches.length
-        ? (searchCur + 1) + '/' + searchMatches.length
-        : (activeQuery ? '0/0' : '');
+      if (activeMatcher && activeMatcher.error) {
+        searchCount.textContent = '正则无效';
+        searchCount.classList.add('error');
+        return;
+      }
+      searchCount.classList.remove('error');
+      const q = searchInput.value;
+      searchCount.textContent = searchHits.length
+        ? (searchCur + 1) + '/' + searchHits.length
+        : (q.trim() ? '0/0' : '');
     }
 
-    function runSearch(keepCur) {
-      activeQuery = searchInput.value.trim().toLowerCase();
+    // Build a matcher honoring the three VSCode-style options.
+    function createMatcher(query, opts) {
+      if (!query) return null;
+      try {
+        let source;
+        if (opts.regex) {
+          source = opts.wholeWord ? '\\b(?:' + query + ')\\b' : query;
+        } else {
+          const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          source = opts.wholeWord ? '\\b(?:' + escaped + ')\\b' : escaped;
+        }
+        const flags = opts.caseSensitive ? 'g' : 'gi';
+        return { re: new RegExp(source, flags), error: null };
+      } catch (err) {
+        return { re: null, error: err.message };
+      }
+    }
+
+    function collectHits(re) {
+      const hits = [];
+      for (const it of allItems) {
+        re.lastIndex = 0;
+        let m;
+        while ((m = re.exec(it.text)) !== null) {
+          if (m[0] !== '') hits.push({ el: it.el, start: m.index, end: m.index + m[0].length });
+          else re.lastIndex++; // zero-length match safety
+        }
+      }
+      return hits;
+    }
+
+    function runSearch(opts = {}) {
+      const keepCur = !!opts.keepCur;
+      const jump = opts.jump !== false;
       for (const it of allItems) restoreBody(it.el);
-      if (!activeQuery) {
-        searchMatches = [];
+      activeMatcher = createMatcher(searchInput.value, searchOpts);
+      if (!activeMatcher || activeMatcher.error) {
+        searchHits = [];
         searchCur = 0;
         updateSearchCount();
         return;
       }
-      searchMatches = allItems.filter((it) => it.text.toLowerCase().includes(activeQuery));
-      if (!keepCur || searchCur >= searchMatches.length) searchCur = 0;
-      for (const it of searchMatches) applyMarks(it.el);
+      searchHits = collectHits(activeMatcher.re);
+      if (!keepCur || searchCur >= searchHits.length) searchCur = 0;
+      const touched = new Set(searchHits.map((h) => h.el));
+      for (const el of touched) applyMarks(el);
       updateSearchCount();
-      if (searchMatches.length) locate(searchMatches[searchCur].el);
+      if (jump && searchHits.length) locate(searchHits[searchCur].el);
     }
 
     function stepSearch(dir) {
-      if (!searchMatches.length) return;
-      searchCur = (searchCur + dir + searchMatches.length) % searchMatches.length;
+      if (!searchHits.length) return;
+      searchCur = (searchCur + dir + searchHits.length) % searchHits.length;
       updateSearchCount();
-      locate(searchMatches[searchCur].el);
+      locate(searchHits[searchCur].el);
+      const touched = new Set(searchHits.map((h) => h.el));
+      for (const el of touched) applyMarks(el);
     }
 
     function openSearch() {
       searchbar.hidden = false;
       searchInput.focus();
       searchInput.select();
+      if (searchInput.value) runSearch({ jump: true });
     }
 
     function closeSearch() {
       searchbar.hidden = true;
-      activeQuery = '';
-      searchMatches = [];
+      activeMatcher = null;
+      searchHits = [];
       searchCur = 0;
       updateSearchCount();
       for (const it of allItems) restoreBody(it.el);
@@ -504,11 +591,8 @@
         clearInterval(timer);
         body.textContent = text;
         el.dataset.done = '1';
-        if (activeQuery && text.toLowerCase().includes(activeQuery)) {
-          searchMatches = allItems.filter((it) => it.text.toLowerCase().includes(activeQuery));
-          if (searchCur >= searchMatches.length) searchCur = 0;
-          applyMarks(el);
-          updateSearchCount();
+        if (!searchbar.hidden && searchInput.value.trim()) {
+          runSearch({ keepCur: true, jump: false });
         }
         if (autoScroll) feed.scrollTop = feed.scrollHeight;
         done();
@@ -570,7 +654,7 @@
       feed.innerHTML = '<div class="empty">已清空</div>';
       allItems.length = 0;
       chips.innerHTML = '';
-      searchMatches = [];
+      searchHits = [];
       searchCur = 0;
       updateSearchCount();
     });
@@ -595,6 +679,27 @@
     searchPrevBtn.addEventListener('click', () => stepSearch(-1));
     searchNextBtn.addEventListener('click', () => stepSearch(1));
     searchCloseBtn.addEventListener('click', closeSearch);
+
+    function toggleSearchOpt(btn, key) {
+      searchOpts[key] = !searchOpts[key];
+      btn.classList.toggle('on', searchOpts[key]);
+      runSearch({ jump: true });
+    }
+    optCaseBtn.addEventListener('click', () => toggleSearchOpt(optCaseBtn, 'caseSensitive'));
+    optWordBtn.addEventListener('click', () => toggleSearchOpt(optWordBtn, 'wholeWord'));
+    optRegexBtn.addEventListener('click', () => toggleSearchOpt(optRegexBtn, 'regex'));
+
+    document.addEventListener('keydown', (e) => {
+      if (searchbar.hidden || !e.altKey || e.ctrlKey || e.metaKey) return;
+      const entry = {
+        KeyC: [optCaseBtn, 'caseSensitive'],
+        KeyW: [optWordBtn, 'wholeWord'],
+        KeyR: [optRegexBtn, 'regex'],
+      }[e.code];
+      if (!entry) return;
+      e.preventDefault();
+      toggleSearchOpt(entry[0], entry[1]);
+    });
 
     document.addEventListener('keydown', (e) => {
       if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F')) {
