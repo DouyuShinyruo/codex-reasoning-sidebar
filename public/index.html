@@ -221,7 +221,6 @@
     <div class="spacer"></div>
     <span class="status" id="status">连接中...</span>
     <button id="tools-toggle" class="on" title="工具调用索引">调用</button>
-    <button id="search-toggle" title="查找 (Ctrl+F)">查找</button>
     <button id="theme" title="切换主题">自动</button>
     <button id="pause">暂停</button>
     <button id="clear">清空</button>
@@ -253,7 +252,6 @@
     const themeBtn = document.getElementById('theme');
     const closeBtn = document.getElementById('close');
     const toolsToggleBtn = document.getElementById('tools-toggle');
-    const searchToggleBtn = document.getElementById('search-toggle');
     const searchbar = document.getElementById('searchbar');
     const searchInput = document.getElementById('search-input');
     const searchCount = document.getElementById('search-count');
@@ -316,20 +314,21 @@
       grip.hidden = false;
 
       let dragging = false;
-      let lastX = 0, lastY = 0, accX = 0, accY = 0, lastSent = 0;
-      const dpr = () => window.devicePixelRatio || 1;
+      let lastX = 0, lastY = 0, accX = 0, accY = 0;
+      let rafPending = false;
 
+      // Coalesce pointer deltas and submit once per display frame.
+      // Deltas stay in CSS pixels: pywebview expects logical pixels.
       const flush = () => {
+        rafPending = false;
         if (!accX && !accY) return;
-        // CSS px -> physical px; the right edge stays anchored in Python.
-        window.pywebview.api.resize_by(Math.round(accX * dpr()), Math.round(accY * dpr()));
+        window.pywebview.api.resize_by(Math.round(accX), Math.round(accY));
         accX = accY = 0;
       };
 
       grip.addEventListener('pointerdown', (e) => {
         dragging = true;
         lastX = e.clientX; lastY = e.clientY;
-        lastSent = performance.now();
         grip.setPointerCapture(e.pointerId);
         e.preventDefault();
       });
@@ -338,8 +337,10 @@
         accX += e.clientX - lastX;
         accY += e.clientY - lastY;
         lastX = e.clientX; lastY = e.clientY;
-        const now = performance.now();
-        if (now - lastSent >= 50) { flush(); lastSent = now; }
+        if (!rafPending) {
+          rafPending = true;
+          requestAnimationFrame(flush);
+        }
       });
       const end = async () => {
         if (!dragging) return;
@@ -585,7 +586,6 @@
       }
     });
 
-    searchToggleBtn.addEventListener('click', openSearch);
     searchInput.addEventListener('input', () => runSearch(false));
     searchInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') { e.preventDefault(); stepSearch(e.shiftKey ? -1 : 1); }

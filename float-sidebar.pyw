@@ -14,6 +14,7 @@ import time
 import urllib.request
 
 import webview
+from webview.window import FixPoint
 
 URL = os.environ.get("CODEX_REASONING_URL", "http://127.0.0.1:8792/")
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -59,7 +60,11 @@ class Api:
         )
 
     def resize_by(self, dx=0, dy=0):
-        """Resize by a delta; keeps the right edge anchored (grip is bottom-right)."""
+        """Resize by a delta in logical (CSS) pixels.
+
+        pywebview converts to physical pixels and performs ONE atomic
+        SetWindowPos call, anchoring the top-right corner.
+        """
         if not self.win:
             return False
         try:
@@ -67,11 +72,8 @@ class Api:
         except (TypeError, ValueError):
             return False
         w, h = self._clamp(self.w + dx, self.h + dy)
-        real_dx = w - self.w
         self.w, self.h = w, h
-        self.x = max(0, self.x - real_dx)
-        self.win.resize(w, h)
-        self.win.move(self.x, self.y)
+        self.win.resize(w, h, FixPoint.NORTH | FixPoint.EAST)
         return True
 
     def apply_size(self, w, h):
@@ -87,8 +89,8 @@ class Api:
         self.w, self.h = w, h
         self.x = max(10, screen.width - w - 10)
         self.y = self.y or max(int(screen.height * 0.04), 10)
-        self.win.resize(w, h)
         self.win.move(self.x, self.y)
+        self.win.resize(w, h, FixPoint.NORTH | FixPoint.WEST)
         return True
 
     def get_size(self):
@@ -109,6 +111,15 @@ def main():
             time.sleep(0.125)
 
     screen = webview.screens[0]
+
+    # Persistent WebView2 profile: more reliable startup than a fresh temp
+    # user-data-folder per launch, and localStorage (theme, saved size)
+    # survives restarts.
+    storage_path = os.path.join(
+        os.environ.get("LOCALAPPDATA", os.path.expanduser("~")),
+        "codex-reasoning-sidebar",
+    )
+
     width = 430
     height = int(screen.height * 0.86)
     x = max(screen.width - width - 10, 10)
@@ -130,7 +141,7 @@ def main():
         background_color="#111318",
     )
     api.bind(window, x, y, width, height)
-    webview.start()
+    webview.start(private_mode=False, storage_path=storage_path)
 
 
 if __name__ == "__main__":
