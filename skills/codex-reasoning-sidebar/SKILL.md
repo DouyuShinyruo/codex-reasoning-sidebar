@@ -31,3 +31,5 @@ Run `powershell -NoProfile -ExecutionPolicy Bypass -File "<plugin>/stop-codex-re
 - If the port is taken by another local service, the server must be restarted on a free port and the new URL opened.
 - Theme follows the OS by default; the user can cycle 自动 / 浅色 / 深色 with the header button and the choice is remembered.
 - All four filters (reasoning / assistant / tool / user) are enabled by default.
+- The 调用 button toggles a tool-call index strip; clicking a chip jumps to and highlights that entry.
+- Ctrl+F opens in-page search (Enter / Shift+Enter to cycle matches, Esc to close).
