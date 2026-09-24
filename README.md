@@ -100,6 +100,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\stop-codex-reasoning-sideb
 | `CODEX_HOME` | `%USERPROFILE%\.codex` | Codex 会话文件所在目录 |
 | `CODEX_REASONING_URL` | `http://127.0.0.1:8792/` | 悬浮窗加载的页面地址 |
 | `REPLAY_TAIL_KB` | `64` | 启动/切换会话时回放的历史长度（KB），`0` 表示回放全部历史 |
+| `FOCUS_LOCK_MS` | `30000` | 聚焦 idle 会话后保持跟随的时长（毫秒） |
 
 示例（临时修改端口）：
 

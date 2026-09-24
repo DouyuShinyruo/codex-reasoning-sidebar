@@ -39,6 +39,12 @@ let replaying = false;
 const fileTimes = new Map();
 // path -> Date.now() of the last poll in which the file changed
 const lastWrite = new Map();
+// The most recent mtime-only touch (focus intent), used to bypass the
+// sticky window when the user switches to an idle session.
+let lastFocus = { file: null, at: 0 };
+// How long a focused-but-idle session keeps the sidebar before the most
+// recent writer can reclaim it.
+const FOCUS_LOCK_MS = Math.max(0, Number(process.env.FOCUS_LOCK_MS ?? 30_000));
 // path -> { id, label } parsed from the session_meta header line
 const sessionMeta = new Map();
 
@@ -78,6 +84,9 @@ function scanSessions() {
       // Focusing an already-loaded idle session touches the file without
       // appending anything; that touch is the only focus signal we get.
       lastWrite.set(f.full, now);
+      if (f.size === prev.size) {
+        lastFocus = { file: f.full, at: now };
+      }
     }
     fileTimes.set(f.full, { size: f.size, mtime: f.mtime });
   }
@@ -128,6 +137,19 @@ function shortId(id) {
 function pickSession() {
   scanSessions();
   const now = Date.now();
+
+  // An mtime-only touch means the user just focused a session; follow that
+  // intent immediately even if the current session is still producing output.
+  // (The sticky window only guards against ping-ponging between two sessions
+  // that are both actively WRITING; touches carry no such risk.)
+  if (lastFocus.file && lastFocus.file !== currentFile && now - lastFocus.at < 3000) {
+    return lastFocus.file;
+  }
+  // Keep following the focused session for a while even if another session
+  // is actively producing output.
+  if (currentFile && lastFocus.file === currentFile && now - lastFocus.at < FOCUS_LOCK_MS) {
+    return currentFile;
+  }
 
   // Stay with the current session while it is still producing output.
   if (currentFile) {
