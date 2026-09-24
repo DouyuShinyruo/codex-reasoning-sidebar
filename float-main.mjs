@@ -154,6 +154,10 @@ if (!app.requestSingleInstanceLock()) {
       log('server ok, creating window');
       win = createWindow();
       log('window created id=' + win.id);
+      // Watchdog: if the server gets stopped externally (e.g. another
+      // window's agent runs the stop script), bring it back so the feed
+      // self-heals within ~30s.
+      setInterval(() => { ensureServer(); }, 30_000);
       ipcMain.on('sidebar-quit', () => win.destroy());
       ipcMain.on('sidebar-pin', (_e, v) => {
         pinned = !!v;
