@@ -35,9 +35,9 @@ const HISTORY_MAX = 300;
 // are marked as replay so clients render them instantly, not typewriter-style.
 let replaying = false;
 
-// path -> last observed file size
-const fileSizes = new Map();
-// path -> Date.now() of the last poll in which the file grew
+// path -> last observed { size, mtime }
+const fileTimes = new Map();
+// path -> Date.now() of the last poll in which the file changed
 const lastWrite = new Map();
 // path -> { id, label } parsed from the session_meta header line
 const sessionMeta = new Map();
@@ -68,22 +68,25 @@ function scanSessions() {
   const all = walkRollouts(sessionsRoot);
   const now = Date.now();
   for (const f of all) {
-    const prev = fileSizes.get(f.full);
+    const prev = fileTimes.get(f.full);
     if (prev === undefined) {
       // First sighting: seed activity from mtime so a recently-used session
       // can win immediately on startup.
       lastWrite.set(f.full, f.mtime);
-    } else if (f.size !== prev) {
+    } else if (f.size !== prev.size || f.mtime > prev.mtime) {
+      // Activity = size change (appended events) OR an mtime-only touch.
+      // Focusing an already-loaded idle session touches the file without
+      // appending anything; that touch is the only focus signal we get.
       lastWrite.set(f.full, now);
     }
-    fileSizes.set(f.full, f.size);
+    fileTimes.set(f.full, { size: f.size, mtime: f.mtime });
   }
   // Forget sessions that have been quiet for a long time.
   const cutoff = now - ACTIVE_WINDOW_MS;
   for (const p of lastWrite.keys()) {
     if ((lastWrite.get(p) || 0) < cutoff) {
       lastWrite.delete(p);
-      fileSizes.delete(p);
+      fileTimes.delete(p);
       sessionMeta.delete(p);
     }
   }
