@@ -35,5 +35,6 @@ Run `powershell -NoProfile -ExecutionPolicy Bypass -File "<plugin>/stop-codex-re
 - Theme follows the OS by default; the user can cycle 自动 / 浅色 / 深色 with the header button and the choice is remembered.
 - All four filters (reasoning / assistant / tool / user) are enabled by default.
 - The 调用 button toggles a tool-call index strip; clicking a chip jumps to and highlights that entry.
+- The 会话 button opens a session picker: click any session to pin the sidebar to it, or choose 自动跟随 to resume automatic following. Pure UI focus (no typing) produces no filesystem signal, so manual pinning is the reliable way to view a specific idle session.
 - Ctrl+F opens in-page search (Enter / Shift+Enter to cycle matches, Esc to close).
 - The search bar has VSCode-style toggles: match case (Alt+C), whole word (Alt+W), regex (Alt+R); invalid regex shows an error hint.

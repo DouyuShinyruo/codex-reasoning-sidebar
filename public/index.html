@@ -168,6 +168,40 @@
       text-overflow: ellipsis;
     }
     .chip:hover { color: var(--orange); border-color: var(--orange); }
+    .session-panel {
+      position: fixed;
+      top: 40px;
+      right: 8px;
+      width: 280px;
+      max-height: 60vh;
+      overflow-y: auto;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+      z-index: 40;
+      padding: 6px;
+      -webkit-app-region: no-drag;
+    }
+    .session-panel .item {
+      display: block;
+      width: 100%;
+      text-align: left;
+      background: transparent;
+      border: none;
+      color: var(--text);
+      padding: 7px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .session-panel .item:hover { background: color-mix(in srgb, var(--muted) 18%, transparent); color: var(--text); border: none; }
+    .session-panel .item.on { color: var(--blue); font-weight: 600; }
+    .session-panel .item small { color: var(--muted); font-weight: 400; margin-left: 6px; }
+    .session-panel .divider { height: 1px; background: var(--line); margin: 5px 4px; }
     main {
       flex: 1;
       overflow-y: auto;
@@ -243,6 +277,7 @@
     <h1>Codex 思维链</h1>
     <div class="spacer"></div>
     <span class="status" id="status">连接中...</span>
+    <button id="sessions-toggle" title="切换会话">会话</button>
     <button id="tools-toggle" class="on" title="工具调用索引">调用</button>
     <button id="pin" class="on" title="取消置顶" hidden>📌</button>
     <button id="theme" title="切换主题">自动</button>
@@ -267,6 +302,7 @@
     <button data-filter="user" class="on">我</button>
   </div>
   <div class="chips" id="chips"></div>
+  <div class="session-panel" id="session-panel" hidden></div>
   <main id="feed">
     <div class="empty">等待思维链...</div>
   </main>
@@ -277,6 +313,8 @@
     const clearBtn = document.getElementById('clear');
     const themeBtn = document.getElementById('theme');
     const closeBtn = document.getElementById('close');
+    const sessionsToggleBtn = document.getElementById('sessions-toggle');
+    const sessionPanel = document.getElementById('session-panel');
     const toolsToggleBtn = document.getElementById('tools-toggle');
     const pinBtn = document.getElementById('pin');
     const searchbar = document.getElementById('searchbar');
@@ -302,6 +340,82 @@
     let activeMatcher = null;
     // VSCode-style search options
     const searchOpts = { caseSensitive: false, wholeWord: false, regex: false };
+
+    // ---- Session picker: manual pin + auto follow ----
+    let currentPinned = null;
+
+    function relTime(ms) {
+      if (!ms) return '';
+      const s = Math.max(0, (Date.now() - ms) / 1000);
+      if (s < 60) return '刚刚';
+      if (s < 3600) return Math.floor(s / 60) + ' 分钟前';
+      if (s < 86400) return Math.floor(s / 3600) + ' 小时前';
+      return Math.floor(s / 86400) + ' 天前';
+    }
+
+    async function openSessionPanel() {
+      sessionPanel.hidden = false;
+      sessionsToggleBtn.classList.add('on');
+      sessionPanel.innerHTML = '<div class="item">加载中…</div>';
+      try {
+        const [listRes, curRes] = await Promise.all([
+          fetch('/api/sessions').then((r) => r.json()),
+          fetch('/api/session').then((r) => r.json()),
+        ]);
+        currentPinned = curRes.pinned || null;
+        const curId = curRes.session;
+        const el = (html) => {
+          const d = document.createElement('button');
+          d.className = 'item';
+          d.innerHTML = html;
+          return d;
+        };
+        sessionPanel.innerHTML = '';
+        const auto = el('自动跟随' + (currentPinned ? '' : ' <small>当前</small>'));
+        if (!currentPinned) auto.classList.add('on');
+        auto.addEventListener('click', () => selectSession(null));
+        sessionPanel.appendChild(auto);
+        const divider = document.createElement('div');
+        divider.className = 'divider';
+        sessionPanel.appendChild(divider);
+        for (const s of listRes.sessions) {
+          const escLabel = String(s.label).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+          const short = s.id ? s.id.slice(0, 4) + '…' + s.id.slice(-4) : '?';
+          const item = el(escLabel + ' <small>' + short + ' · ' + relTime(s.mtime) + '</small>');
+          if (s.id === curId) item.classList.add('on');
+          item.addEventListener('click', () => selectSession(s.id));
+          sessionPanel.appendChild(item);
+        }
+      } catch {
+        sessionPanel.innerHTML = '<div class="item">加载失败，请重试</div>';
+      }
+    }
+
+    function closeSessionPanel() {
+      sessionPanel.hidden = true;
+      sessionsToggleBtn.classList.remove('on');
+    }
+
+    async function selectSession(id) {
+      try {
+        await fetch('/api/follow', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session: id }),
+        });
+      } catch {}
+      closeSessionPanel();
+    }
+
+    sessionsToggleBtn.addEventListener('click', () => {
+      if (sessionPanel.hidden) openSessionPanel();
+      else closeSessionPanel();
+    });
+    document.addEventListener('click', (e) => {
+      if (!sessionPanel.hidden && !sessionPanel.contains(e.target) && e.target !== sessionsToggleBtn) {
+        closeSessionPanel();
+      }
+    });
 
     // ---- Theme: auto follows the OS, manual choice is persisted ----
     const THEME_KEY = 'codex-reasoning-sidebar-theme';

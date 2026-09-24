@@ -134,6 +134,36 @@ function shortId(id) {
   return id ? `${id.slice(0, 4)}…${id.slice(-4)}` : '未知会话';
 }
 
+// ---- Manual session pinning ----
+// Codex does not expose which thread the desktop UI is focused on (no file
+// signal for pure focus, no app-server API). A manual pin lets the user
+// switch the sidebar to any session explicitly.
+let pinnedId = null;
+const pinnedPath = path.join(__dirname, 'pinned.json');
+function loadPinned() {
+  try { pinnedId = JSON.parse(fs.readFileSync(pinnedPath, 'utf8')).session || null; } catch { pinnedId = null; }
+}
+function savePinned() {
+  try { fs.writeFileSync(pinnedPath, JSON.stringify({ session: pinnedId })); } catch {}
+}
+loadPinned();
+
+function fileForSessionId(id) {
+  if (!id) return null;
+  const hit = walkRollouts(sessionsRoot).find((f) => path.basename(f.full).includes(id));
+  return hit ? hit.full : null;
+}
+
+function listSessions(limit = 15) {
+  const all = walkRollouts(sessionsRoot)
+    .sort((a, b) => b.mtime - a.mtime)
+    .slice(0, limit);
+  return all.map((f) => {
+    const info = readSessionMeta(f.full);
+    return { id: info.id, label: info.label || shortId(info.id), mtime: f.mtime };
+  });
+}
+
 function pickSession() {
   scanSessions();
   const now = Date.now();
@@ -317,7 +347,17 @@ function switchTo(file) {
 }
 
 function poll() {
-  const latest = pickSession();
+  let latest = null;
+  if (pinnedId) {
+    latest = fileForSessionId(pinnedId);
+    if (!latest) {
+      // The pinned session disappeared (archived/deleted); resume auto mode.
+      pinnedId = null;
+      savePinned();
+      broadcast({ kind: 'system', ts: new Date().toISOString(), text: '固定的会话已不存在，恢复自动跟随' });
+    }
+  }
+  if (!latest) latest = pickSession();
   if (!latest) return;
   if (!currentFile || latest !== currentFile) switchTo(latest);
   const entries = readNewEntries();
@@ -370,7 +410,40 @@ const server = http.createServer((req, res) => {
       file: currentFile || null,
       session: info.id,
       label: info.label,
+      pinned: pinnedId,
     }));
+    return;
+  }
+  if (url.pathname === '/api/sessions') {
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ sessions: listSessions() }));
+    return;
+  }
+  if (url.pathname === '/api/follow' && req.method === 'POST') {
+    let body = '';
+    req.on('data', (c) => { body += c; });
+    req.on('end', () => {
+      let session = null;
+      try { session = JSON.parse(body).session || null; } catch {}
+      if (session && !fileForSessionId(session)) {
+        res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ ok: false, error: 'session not found' }));
+        return;
+      }
+      pinnedId = session;
+      savePinned();
+      poll(); // switch immediately
+      const info = pinnedId ? readSessionMeta(currentFile || '') : null;
+      broadcast({
+        kind: 'system',
+        ts: new Date().toISOString(),
+        text: pinnedId
+          ? `已固定会话 ${info?.label || shortId(pinnedId)}（在会话菜单选择「自动跟随」恢复）`
+          : '已恢复自动跟随',
+      });
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ ok: true, pinned: pinnedId }));
+    });
     return;
   }
   res.writeHead(404);
