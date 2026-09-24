@@ -498,7 +498,7 @@
       chips.scrollLeft = chips.scrollWidth;
     }
 
-    function renderTyping(item, done) {
+    function renderTyping(item, done, { instant = false } = {}) {
       const empty = feed.querySelector('.empty');
       if (empty) empty.remove();
       const el = document.createElement('div');
@@ -529,6 +529,19 @@
       while (feed.children.length > 300) feed.firstElementChild.remove();
 
       const text = item.text;
+      if (instant) {
+        body.textContent = text;
+        el.dataset.done = '1';
+        if (!searchbar.hidden && searchInput.value.trim()) {
+          runSearch({ keepCur: true, jump: false });
+        }
+        if (autoScroll) {
+          // Coalesce scrolls across a whole catch-up batch into one frame.
+          requestAnimationFrame(() => { feed.scrollTop = feed.scrollHeight; });
+        }
+        done();
+        return;
+      }
       const step = text.length > 400 ? 3 : 2;
       const speed = text.length > 400 ? 10 : 16;
       let idx = 0;
@@ -566,7 +579,7 @@
       }
       playing = true;
       const item = queue.shift();
-      renderTyping(item, playNext);
+      renderTyping(item, playNext, { instant: !!(item.replay || item.catchup) });
     }
 
     function enqueue(item) {

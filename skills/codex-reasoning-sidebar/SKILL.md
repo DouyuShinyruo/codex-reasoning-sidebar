@@ -20,6 +20,7 @@ Or launch the floating always-on-top window instead:
 4. The 📌 pin button toggles always-on-top (default on, persisted).
 
 The server auto-follows whichever Codex session is writing most recently, so switching windows switches the feed automatically.
+Newly opened pages/windows receive the last ~300 entries instantly as catch-up history, then stream live; scroll lands on the newest entry.
 
 ## Stop
 

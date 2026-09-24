@@ -27,6 +27,13 @@ let carry = '';
 let lastSwitchNotified = '';
 let scanTimer = null;
 const recentItems = new Map();
+// Ring buffer of recently broadcast items. Late-joining clients (e.g. a
+// floating window opened later) receive this as instant catch-up history.
+const history = [];
+const HISTORY_MAX = 300;
+// True while draining the tail of a freshly attached session; those entries
+// are marked as replay so clients render them instantly, not typewriter-style.
+let replaying = false;
 
 // path -> last observed file size
 const fileSizes = new Map();
@@ -220,6 +227,13 @@ function broadcast(obj) {
   for (const res of clients) res.write(payload);
 }
 
+function emit(item, { replay = false } = {}) {
+  const full = replay ? { ...item, replay: true } : item;
+  broadcast(full);
+  history.push(full);
+  while (history.length > HISTORY_MAX) history.shift();
+}
+
 function shortHash(s) {
   let h = 5381;
   for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
@@ -244,6 +258,8 @@ function dedupe(obj) {
 function switchTo(file) {
   currentFile = file;
   carry = '';
+  history.length = 0;
+  replaying = true;
 
   // Attach near the tail so switching is instant instead of replaying the
   // entire session history with the typewriter effect.
@@ -282,8 +298,9 @@ function poll() {
   const entries = readNewEntries();
   for (const raw of entries) {
     const mapped = mapEntry(raw);
-    if (mapped && dedupe(mapped)) broadcast(mapped);
+    if (mapped && dedupe(mapped)) emit(mapped, { replay: replaying });
   }
+  replaying = false;
 }
 
 scanTimer = setInterval(poll, 1000);
@@ -305,6 +322,18 @@ const server = http.createServer((req, res) => {
       'Access-Control-Allow-Origin': '*',
     });
     res.write(`data: ${JSON.stringify({ kind: 'system', ts: new Date().toISOString(), text: '已连接' })}\n\n`);
+    if (currentFile) {
+      const info = readSessionMeta(currentFile);
+      const note = info.label
+        ? `已监听 ${info.label}（${shortId(info.id)}）`
+        : `已监听会话 ${shortId(info.id)}`;
+      res.write(`data: ${JSON.stringify({ kind: 'system', ts: new Date().toISOString(), text: note })}\n\n`);
+    }
+    // Catch the new client up with recent history so a freshly opened window
+    // shows the session context immediately.
+    for (const item of history) {
+      res.write(`data: ${JSON.stringify({ ...item, catchup: true })}\n\n`);
+    }
     clients.add(res);
     req.on('close', () => clients.delete(res));
     return;
