@@ -74,12 +74,13 @@ http://127.0.0.1:8792/
 powershell -NoProfile -ExecutionPolicy Bypass -File .\start-codex-reasoning-sidebar-float.ps1
 ```
 
-脚本会自动启动本地服务（若未运行）、安装 `pywebview` 依赖（仅首次），然后打开一个无边框、置顶、
-可整体拖动的悬浮窗，默认停靠在屏幕右缘。悬浮窗与内置浏览器页面使用同一个服务，可以同时开。
+脚本会自动启动本地服务（若未运行）、安装 Electron 运行时（仅首次，约 130MB，安装在
+`%LOCALAPPDATA%\codex-reasoning-sidebar`），然后打开一个无边框、置顶的悬浮窗，默认停靠在屏幕右缘。
+悬浮窗与内置浏览器页面使用同一个服务，可以同时开。运行时只需 Node.js，无 Python 依赖。
 
-悬浮窗右下角有缩放手柄（拖动调整宽高，右缘保持对齐），调整后的尺寸会被记住；
-右上角 ✕ 按钮关闭悬浮窗。
-主题与尺寸等偏好通过本地持久化数据目录保存，重启后自动恢复。
+- 拖动标题栏移动窗口；**四条边和四个角都可以直接拖拽缩放**（原生支持）
+- 尺寸与位置自动记住，重启后恢复
+- 右上角 ✕ 按钮关闭悬浮窗；重复启动会聚焦已有窗口
 
 ### 停止服务
 
@@ -134,7 +135,8 @@ codex-reasoning-sidebar-plugin/
 ├── skills/codex-reasoning-sidebar/       # 插件内置 skill 说明
 ├── public/index.html            # 侧边栏页面
 ├── server.mjs                   # 本地 HTTP + SSE 服务
-├── float-sidebar.pyw            # 悬浮窗宿主（pywebview，双击启动）
+├── float-main.mjs               # 悬浮窗宿主（Electron 主进程）
+├── float-preload.cjs            # 悬浮窗 preload（暴露关闭接口）
 ├── install.ps1                  # 安装脚本
 ├── start-codex-reasoning-sidebar.ps1     # 启动脚本
 ├── start-codex-reasoning-sidebar-float.ps1     # 悬浮窗启动脚本

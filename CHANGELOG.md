@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Changed
+
+- 悬浮窗宿主由 pywebview 迁移到 Electron：四边四角原生拖拽缩放、单实例防重复启动、尺寸位置持久化；移除 Python 运行时依赖
+- Electron 运行时独立安装在 `%LOCALAPPDATA%\codex-reasoning-sidebar`，插件目录与市场缓存保持轻量
+
 ### Added
 
 - 悬浮窗模式：`float-sidebar.pyw` / `start-codex-reasoning-sidebar-float.ps1`，无边框置顶可拖动窗口，自动拉起本地服务

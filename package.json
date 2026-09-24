@@ -1,6 +1,6 @@
 {
   "name": "codex-reasoning-sidebar",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Codex 实时思维链侧边栏插件：在 Codex 内置浏览器中流式显示当前窗口的思考过程。",
   "license": "GPL-3.0",
   "private": true,
@@ -10,8 +10,12 @@
   },
   "scripts": {
     "start": "node server.mjs",
+    "float": "electron float-main.mjs",
     "stop": "powershell -NoProfile -ExecutionPolicy Bypass -File ./stop-codex-reasoning-sidebar.ps1",
     "install": "powershell -NoProfile -ExecutionPolicy Bypass -File ./install.ps1"
+  },
+  "dependencies": {
+    "electron": "^37.0.0"
   },
   "keywords": [
     "codex",
