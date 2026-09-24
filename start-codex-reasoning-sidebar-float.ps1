@@ -21,23 +21,38 @@ $sessionId = (Get-Process -Id $PID).SessionId
 
 if ($sessionId -eq 0) {
     # Running from a non-interactive session (e.g. a service context); GUI
-    # apps cannot start there, so relay the launch into the interactive
-    # user's session via a one-shot scheduled task.
+    # apps cannot start there. Ask the user's running Explorer to launch
+    # Electron so it gets a real interactive desktop (Chromium/GPU cannot
+    # initialize properly under a scheduled-task context).
     $userName = (Get-CimInstance Win32_ComputerSystem).UserName
     if (-not $userName) { throw "No interactive user session found; log in first." }
 
-    $taskName = "CodexReasoningSidebarFloat"
-    $action = New-ScheduledTaskAction -Execute $electron -Argument "`"$main`"" -WorkingDirectory $dir
-    $principal = New-ScheduledTaskPrincipal -UserId $userName -LogonType Interactive
-    $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero)
-    $task = New-ScheduledTask -Action $action -Principal $principal -Settings $settings
-    Register-ScheduledTask -TaskName $taskName -InputObject $task -Force | Out-Null
+    $launched = $false
     try {
-        Start-ScheduledTask -TaskName $taskName
-        Write-Host "Floating sidebar launched in interactive session ($userName)."
-    } finally {
-        Start-Sleep -Seconds 2
-        Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
+        $shellWindows = New-Object -ComObject Shell.Windows
+        if ($shellWindows.Count -gt 0) {
+            $shell = $shellWindows.Item(0).Document.Application
+            $shell.ShellExecute($electron, "`"$main`"", $dir, "open", 1)
+            $launched = $true
+            Write-Host "Floating sidebar launched via Explorer ($userName)."
+        }
+    } catch {
+        Write-Host "Explorer launch failed, falling back to scheduled task: $($_.Exception.Message)"
+    }
+    if (-not $launched) {
+        $taskName = "CodexReasoningSidebarFloat"
+        $action = New-ScheduledTaskAction -Execute $electron -Argument "`"$main`"" -WorkingDirectory $dir
+        $principal = New-ScheduledTaskPrincipal -UserId $userName -LogonType Interactive
+        $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero)
+        $task = New-ScheduledTask -Action $action -Principal $principal -Settings $settings
+        Register-ScheduledTask -TaskName $taskName -InputObject $task -Force | Out-Null
+        try {
+            Start-ScheduledTask -TaskName $taskName
+            Write-Host "Floating sidebar launched in interactive session ($userName)."
+        } finally {
+            Start-Sleep -Seconds 2
+            Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
+        }
     }
 } else {
     Start-Process -FilePath $electron -ArgumentList "`"$main`"" -WorkingDirectory $dir -WindowStyle Hidden
