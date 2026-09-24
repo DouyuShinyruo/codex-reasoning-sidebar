@@ -17,6 +17,7 @@ Or launch the floating always-on-top window instead:
 1. Run `powershell -NoProfile -ExecutionPolicy Bypass -File "<plugin>/start-codex-reasoning-sidebar-float.ps1"` (installs the Electron runtime automatically on first run).
 2. A frameless draggable window opens docked to the right edge of the screen; it also starts the server automatically.
 3. Drag the title bar to move the window; all edges and corners resize natively; size and position are remembered.
+4. The 📌 pin button toggles always-on-top (default on, persisted).
 
 The server auto-follows whichever Codex session is writing most recently, so switching windows switches the feed automatically.
 

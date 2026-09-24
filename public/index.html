@@ -244,6 +244,7 @@
     <div class="spacer"></div>
     <span class="status" id="status">连接中...</span>
     <button id="tools-toggle" class="on" title="工具调用索引">调用</button>
+    <button id="pin" class="on" title="取消置顶" hidden>📌</button>
     <button id="theme" title="切换主题">自动</button>
     <button id="pause">暂停</button>
     <button id="clear">清空</button>
@@ -277,6 +278,7 @@
     const themeBtn = document.getElementById('theme');
     const closeBtn = document.getElementById('close');
     const toolsToggleBtn = document.getElementById('tools-toggle');
+    const pinBtn = document.getElementById('pin');
     const searchbar = document.getElementById('searchbar');
     const searchInput = document.getElementById('search-input');
     const searchCount = document.getElementById('search-count');
@@ -331,6 +333,19 @@
     if (window.sidebar && window.sidebar.quit) {
       closeBtn.hidden = false;
       closeBtn.addEventListener('click', () => window.sidebar.quit());
+    }
+
+    // Pin toggle: control always-on-top (Electron window only).
+    if (window.sidebar && window.sidebar.setPinned) {
+      pinBtn.hidden = false;
+      const setPinUI = (v) => {
+        pinBtn.classList.toggle('on', v);
+        pinBtn.title = v ? '取消置顶' : '窗口置顶';
+      };
+      pinBtn.addEventListener('click', () => {
+        window.sidebar.setPinned(!pinBtn.classList.contains('on'));
+      });
+      if (window.sidebar.onPinned) window.sidebar.onPinned(setPinUI);
     }
 
     function fmt(ts) {

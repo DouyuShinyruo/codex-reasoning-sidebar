@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- 悬浮窗图钉按钮：控制是否始终置顶（默认置顶，状态持久化）
+
 ### Changed
 
 - 悬浮窗宿主由 pywebview 迁移到 Electron：四边四角原生拖拽缩放、单实例防重复启动、尺寸位置持久化；移除 Python 运行时依赖

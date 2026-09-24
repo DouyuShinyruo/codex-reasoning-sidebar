@@ -52,17 +52,21 @@ function readState() {
   try {
     const raw = fs.readFileSync(path.join(app.getPath('userData'), 'window-state.json'), 'utf8');
     const s = JSON.parse(raw);
-    if (Number.isFinite(s.width) && Number.isFinite(s.height)) return s;
+    if (Number.isFinite(s.width) && Number.isFinite(s.height)) {
+      return { ...s, pinned: s.pinned !== false };
+    }
   } catch {}
   return null;
 }
 
 let saveTimer = null;
+let pinned = true;
+
 function persistBounds(win) {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     try {
-      const b = win.getBounds();
+      const b = { ...win.getBounds(), pinned };
       fs.mkdirSync(app.getPath('userData'), { recursive: true });
       fs.writeFileSync(path.join(app.getPath('userData'), 'window-state.json'), JSON.stringify(b));
     } catch {}
@@ -72,6 +76,7 @@ function persistBounds(win) {
 function createWindow() {
   const work = screen.getPrimaryDisplay().workArea;
   const state = readState();
+  pinned = state ? state.pinned !== false : true;
   const width = state?.width || 430;
   const height = state?.height || Math.round(work.height * 0.86);
   let x = Number.isFinite(state?.x) ? state.x : work.x + work.width - width - 10;
@@ -93,7 +98,7 @@ function createWindow() {
     title: 'Codex 思维链',
     frame: false,
     resizable: true,
-    alwaysOnTop: true,
+    alwaysOnTop: pinned,
     backgroundColor: '#111318',
     width,
     height,
@@ -114,10 +119,13 @@ function createWindow() {
     clearTimeout(saveTimer);
     try {
       fs.mkdirSync(app.getPath('userData'), { recursive: true });
-      fs.writeFileSync(path.join(app.getPath('userData'), 'window-state.json'), JSON.stringify(win.getBounds()));
+      fs.writeFileSync(path.join(app.getPath('userData'), 'window-state.json'), JSON.stringify({ ...win.getBounds(), pinned }));
     } catch {}
   });
   win.on('closed', () => app.quit());
+  win.webContents.on('did-finish-load', () => {
+    try { win.webContents.send('sidebar-pinned', pinned); } catch {}
+  });
   return win;
 }
 
@@ -147,6 +155,11 @@ if (!app.requestSingleInstanceLock()) {
       win = createWindow();
       log('window created id=' + win.id);
       ipcMain.on('sidebar-quit', () => win.destroy());
+      ipcMain.on('sidebar-pin', (_e, v) => {
+        pinned = !!v;
+        if (win) win.setAlwaysOnTop(pinned);
+        try { win.webContents.send('sidebar-pinned', pinned); } catch {}
+      });
     } catch (err) {
       log('STARTUP ERROR:', err && err.stack ? err.stack : String(err));
     }

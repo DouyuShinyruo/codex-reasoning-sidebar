@@ -80,6 +80,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\start-codex-reasoning-side
 
 - 拖动标题栏移动窗口；**四条边和四个角都可以直接拖拽缩放**（原生支持）
 - 尺寸与位置自动记住，重启后恢复
+- 标题栏图钉按钮控制**是否置顶**（默认置顶，选择会记住）
 - 右上角 ✕ 按钮关闭悬浮窗；重复启动会聚焦已有窗口
 
 ### 停止服务
