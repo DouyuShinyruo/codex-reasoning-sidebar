@@ -63,3 +63,20 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host "Done. Open a new Codex window and ask: open the Codex reasoning sidebar"
+
+# Desktop shortcut for double-click launching.
+try {
+  $desktop = [Environment]::GetFolderPath("Desktop")
+  $lnk = Join-Path $desktop "Codex Sidebar.lnk"
+  $shell = New-Object -ComObject WScript.Shell
+  $sc = $shell.CreateShortcut($lnk)
+  $sc.TargetPath = Join-Path $pluginRoot "start-float.bat"
+  $sc.WorkingDirectory = $pluginRoot
+  $sc.Description = "Codex reasoning sidebar launcher"
+  $electronExe = Join-Path $env:LOCALAPPDATA "codex-reasoning-sidebar\node_modules\electron\dist\electron.exe"
+  if (Test-Path $electronExe) { $sc.IconLocation = "$electronExe,0" }
+  $sc.Save()
+  Write-Host "Desktop shortcut created: $lnk"
+} catch {
+  Write-Host "Desktop shortcut skipped: $($_.Exception.Message)"
+}

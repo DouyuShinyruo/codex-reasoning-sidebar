@@ -14,6 +14,7 @@ The plugin ships a local HTTP + SSE server that tails the most recently active C
 
 Or launch the floating always-on-top window instead:
 
+0. Easiest: double-click the desktop shortcut "Codex Sidebar" (created by install.ps1), or start-float.bat in the plugin folder.
 1. Run `powershell -NoProfile -ExecutionPolicy Bypass -File "<plugin>/start-codex-reasoning-sidebar-float.ps1"` (installs the Electron runtime automatically on first run).
 2. A frameless draggable window opens docked to the right edge of the screen; it also starts the server automatically.
 3. Drag the title bar to move the window; all edges and corners resize natively; size and position are remembered.
