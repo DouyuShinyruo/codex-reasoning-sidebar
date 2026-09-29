@@ -72,8 +72,9 @@ http://127.0.0.1:8792/
 
 ### 悬浮窗模式（可选）
 
-最简单的方式：**双击桌面上的 `Codex Sidebar` 快捷方式**（由安装脚本自动创建），
-或双击插件目录下的 `start-float.bat`。停止请双击 `stop-float.bat`。
+最简单的方式：**双击桌面上的 `Codex Sidebar` 快捷方式**（由安装脚本自动创建，直接启动
+Electron，无任何控制台窗口，悬浮窗与启动器完全解耦）。停止请双击 `stop-float.bat`。
+插件目录下的 `start-float.bat` 保留用于首次安装运行时或排查问题（会短暂显示控制台）。
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\start-codex-reasoning-sidebar-float.ps1

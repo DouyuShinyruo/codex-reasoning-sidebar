@@ -70,11 +70,19 @@ try {
   $lnk = Join-Path $desktop "Codex Sidebar.lnk"
   $shell = New-Object -ComObject WScript.Shell
   $sc = $shell.CreateShortcut($lnk)
-  $sc.TargetPath = Join-Path $pluginRoot "start-float.bat"
+  $electronExe = Join-Path $env:LOCALAPPDATA "codex-reasoning-sidebar\node_modules\electron\dist\electron.exe"
+  if (Test-Path $electronExe) {
+    # Launch Electron directly: no console window, fully detached from any
+    # launcher. The Electron main process starts the server itself.
+    $sc.TargetPath = $electronExe
+    $sc.Arguments = '"' + (Join-Path $pluginRoot "float-main.mjs") + '"'
+    $sc.IconLocation = "$electronExe,0"
+  } else {
+    # Runtime not installed yet (first run): use the bat, which installs it.
+    $sc.TargetPath = Join-Path $pluginRoot "start-float.bat"
+  }
   $sc.WorkingDirectory = $pluginRoot
   $sc.Description = "Codex reasoning sidebar launcher"
-  $electronExe = Join-Path $env:LOCALAPPDATA "codex-reasoning-sidebar\node_modules\electron\dist\electron.exe"
-  if (Test-Path $electronExe) { $sc.IconLocation = "$electronExe,0" }
   $sc.Save()
   Write-Host "Desktop shortcut created: $lnk"
 } catch {
